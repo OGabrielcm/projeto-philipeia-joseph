@@ -1,83 +1,82 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/auth/auth_notifier.dart';
-import 'core/theme/app_colors.dart';
-import 'core/theme/app_theme.dart';
-import 'router.dart';
+import 'views/login/login_view.dart';
 
 void main() {
-  runApp(const ProviderScope(child: _AppInit()));
-}
-
-class _AppInit extends ConsumerStatefulWidget {
-  const _AppInit();
-
-  @override
-  ConsumerState<_AppInit> createState() => _AppInitState();
-}
-
-class _AppInitState extends ConsumerState<_AppInit> {
-  late final Future<void> _initFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _initFuture = ref.read(authProvider.notifier).init();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _initFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return MaterialApp(
-            theme: AppTheme.dark,
-            home: Scaffold(
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Falha ao inicializar o app.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.refresh, color: AppColors.accent),
-                      label: const Text('Tentar novamente',
-                          style: TextStyle(color: AppColors.accent)),
-                      style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.accent)),
-                      onPressed: () => setState(() {
-                        _initFuture = ref.read(authProvider.notifier).init();
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
-        if (snapshot.connectionState != ConnectionState.done) {
-          return MaterialApp(
-            theme: AppTheme.dark,
-            home: const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        return MaterialApp.router(
-          title: 'Philipeia',
-          theme: AppTheme.dark,
-          routerConfig: appRouter,
-          debugShowCheckedModeBanner: false,
-        );
-      },
-    );
-  }
+  runApp(MaterialApp(
+    title: 'Philipeia',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF1F2125),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFFFFD300),
+        secondary: Color(0xFFFFD300),
+        surface: Color(0xFF2A2D31),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF16181B),
+        foregroundColor: Color(0xFFFFFFFF),
+        elevation: 0,
+      ),
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: Color(0xFF1F2125),
+      ),
+      cardColor: const Color(0xFF2A2D31),
+      dividerColor: const Color(0xFF3A3D42),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFD300),
+          foregroundColor: const Color(0xFF16181B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFB5B9C0),
+          side: const BorderSide(color: Color(0xFF3A3D42)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: const Color(0xFFFFD300)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF16181B),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF3A3D42)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF3A3D42)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFFFD300), width: 2),
+        ),
+        labelStyle: const TextStyle(color: Color(0xFF7A7E85)),
+        hintStyle: const TextStyle(color: Color(0xFF7A7E85)),
+        prefixIconColor: const Color(0xFF7A7E85),
+        suffixIconColor: const Color(0xFF7A7E85),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFF16181B),
+        selectedItemColor: Color(0xFFFFD300),
+        unselectedItemColor: Color(0xFF7A7E85),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Color(0xFFFFD300),
+        foregroundColor: Color(0xFF16181B),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: Color(0xFF2A2D31),
+        contentTextStyle: TextStyle(color: Color(0xFFB5B9C0)),
+      ),
+    ),
+    home: const LoginView(),
+  ));
 }

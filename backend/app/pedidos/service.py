@@ -320,3 +320,11 @@ def cancel_order(pedido_id: int, motivo: str) -> dict | None:
         motivo, pedido_id,
     )
     return get_pedido(pedido_id)
+
+
+def delete_order(pedido_id: int) -> bool:
+    row = db.fetchone('SELECT id FROM orders WHERE id = ?', pedido_id)
+    if not row:
+        return False
+    db.execute('DELETE FROM orders WHERE id = ?', pedido_id)
+    return True

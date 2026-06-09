@@ -65,6 +65,15 @@ def update_pedido(pedido_id):
     return jsonify(pedido), 200
 
 
+@pedidos_bp.delete('/<int:pedido_id>')
+@require_auth
+def delete_pedido(pedido_id):
+    deleted = service.delete_order(pedido_id)
+    if not deleted:
+        return jsonify(error='Pedido não encontrado'), 404
+    return '', 204
+
+
 @pedidos_bp.post('/<int:pedido_id>/cancelar')
 @require_auth
 def cancelar_pedido(pedido_id):
