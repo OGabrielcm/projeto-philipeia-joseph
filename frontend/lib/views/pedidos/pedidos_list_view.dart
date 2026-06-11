@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/pedido_service.dart';
+import '../../utils/input_formatters.dart';
 
 class PedidosListView extends StatefulWidget {
   const PedidosListView({super.key, this.refreshKey = 0});
@@ -141,7 +142,7 @@ class _PedidosListViewState extends State<PedidosListView> {
   }
 
   Future<void> _verDetalhesPedido(Map<String, dynamic> resumo) async {
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF2A2D31),
@@ -150,6 +151,7 @@ class _PedidosListViewState extends State<PedidosListView> {
       ),
       builder: (_) => _DetalhePedidoSheet(id: resumo['id'] as int),
     );
+    if (mounted) _carregarPedidos();
   }
 
   String _formatarData(String iso) {
@@ -396,7 +398,17 @@ class _DetalhePedidoSheetState extends State<_DetalhePedidoSheet> {
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(p['numero'] as String,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-              _badge(p['status'] as String),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                _badge(p['status'] as String),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF7A7E85)),
+                  tooltip: 'Editar',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  onPressed: _abrirEdicao,
+                ),
+              ]),
             ]),
             const SizedBox(height: 4),
             Text(p['customer_nome'] as String,
@@ -445,6 +457,126 @@ class _DetalhePedidoSheetState extends State<_DetalhePedidoSheet> {
       },
     );
   }
+
+  Future<void> _abrirEdicao() async {
+    final p = _pedido!;
+    final dataEventoCtrl = TextEditingController(text: isoParaDisplay(p['data_evento'] as String));
+    final horaInicioCtrl = TextEditingController(text: _horaStr(p['hora_inicio'] as String));
+    final dataRecolhCtrl = TextEditingController(text: isoParaDisplay(p['data_recolhimento'] as String));
+    final horaRecolhCtrl = TextEditingController(text: _horaStr(p['hora_recolhimento'] as String));
+    final taxaCtrl = TextEditingController(text: (p['taxa_instalacao'] as num).toStringAsFixed(2));
+    final obsCtrl  = TextEditingController(text: p['observacoes'] as String? ?? '');
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        String? erro;
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: const Text('Editar Pedido'),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (erro != null) ...[
+                      Text(erro!, style: const TextStyle(color: Color(0xFFF85149), fontSize: 12)),
+                      const SizedBox(height: 8),
+                    ],
+                    Row(children: [
+                      Expanded(child: _tfData(dataEventoCtrl, 'Data do Evento')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _tfHora(horaInicioCtrl, 'Hora Início')),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Expanded(child: _tfData(dataRecolhCtrl, 'Data Recolhimento')),
+                      const SizedBox(width: 8),
+                      Expanded(child: _tfHora(horaRecolhCtrl, 'Hora Recolhimento')),
+                    ]),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: taxaCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Taxa de Instalação',
+                        prefixText: 'R\$ ',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: obsCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Observações'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () async {
+                  final dataEvento = parseData(dataEventoCtrl.text);
+                  final horaInicio = parseHora(horaInicioCtrl.text);
+                  final dataRecolh = parseData(dataRecolhCtrl.text);
+                  final horaRecolh = parseHora(horaRecolhCtrl.text);
+
+                  if (dataEvento == null) { setLocal(() => erro = 'Data do evento inválida'); return; }
+                  if (horaInicio == null) { setLocal(() => erro = 'Hora de início inválida'); return; }
+                  if (dataRecolh == null) { setLocal(() => erro = 'Data de recolhimento inválida'); return; }
+                  if (horaRecolh == null) { setLocal(() => erro = 'Hora de recolhimento inválida'); return; }
+                  if (dataRecolh.isBefore(dataEvento)) {
+                    setLocal(() => erro = 'Recolhimento deve ser >= data do evento');
+                    return;
+                  }
+
+                  final payload = {
+                    'data_evento':        displayParaIso(dataEventoCtrl.text),
+                    'hora_inicio':        horaInicioCtrl.text,
+                    'data_recolhimento':  displayParaIso(dataRecolhCtrl.text),
+                    'hora_recolhimento':  horaRecolhCtrl.text,
+                    'taxa_instalacao':    double.tryParse(taxaCtrl.text) ?? 0.0,
+                    'observacoes':        obsCtrl.text.trim().isNotEmpty ? obsCtrl.text.trim() : null,
+                  };
+
+                  try {
+                    await PedidoService.atualizar(widget.id, payload);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _carregar();
+                  } catch (e) {
+                    setLocal(() => erro = e.toString().replaceFirst('Exception: ', ''));
+                  }
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+
+    for (final c in [dataEventoCtrl, horaInicioCtrl, dataRecolhCtrl, horaRecolhCtrl, taxaCtrl, obsCtrl]) {
+      c.dispose();
+    }
+  }
+
+  String _horaStr(String t) => t.length >= 5 ? t.substring(0, 5) : t;
+
+  TextField _tfData(TextEditingController ctrl, String label) => TextField(
+    controller: ctrl,
+    keyboardType: TextInputType.number,
+    inputFormatters: [DateInputFormatter()],
+    decoration: InputDecoration(labelText: label, hintText: 'dd/MM/yyyy'),
+  );
+
+  TextField _tfHora(TextEditingController ctrl, String label) => TextField(
+    controller: ctrl,
+    keyboardType: TextInputType.number,
+    inputFormatters: [TimeInputFormatter()],
+    decoration: InputDecoration(labelText: label, hintText: 'HH:mm'),
+  );
 
   Widget _badge(String status) {
     final isPendente = status == 'pendente';

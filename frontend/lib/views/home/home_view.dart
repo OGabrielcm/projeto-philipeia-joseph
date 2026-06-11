@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../clientes/clientes_view.dart';
 import '../pedidos/pedidos_list_view.dart';
 import '../pedidos/novo_pedido_view.dart';
 import '../historico/historico_view.dart';
@@ -16,10 +17,11 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   int _indiceAtual = 0;
   int _refreshPedidos   = 0;
+  int _refreshClientes  = 0;
   int _refreshHistorico = 0;
   int _refreshProdutos  = 0;
 
-  final List<String> _titulos = ['Pedidos', 'Histórico', 'Produtos'];
+  final List<String> _titulos = ['Pedidos', 'Clientes', 'Histórico', 'Produtos'];
 
   Future<void> _logout() async {
     await AuthService.logout();
@@ -44,8 +46,9 @@ class _HomeViewState extends State<HomeView> {
     setState(() {
       _indiceAtual = i;
       if (i == 0) _refreshPedidos++;
-      if (i == 1) _refreshHistorico++;
-      if (i == 2) _refreshProdutos++;
+      if (i == 1) _refreshClientes++;
+      if (i == 2) _refreshHistorico++;
+      if (i == 3) _refreshProdutos++;
     });
   }
 
@@ -85,9 +88,10 @@ class _HomeViewState extends State<HomeView> {
                 ],
               ),
             ),
-            _itemMenu(Icons.list_alt,   'Pedidos',   0),
-            _itemMenu(Icons.history,    'Histórico', 1),
-            _itemMenu(Icons.local_drink,'Produtos',  2),
+            _itemMenu(Icons.list_alt,    'Pedidos',   0),
+            _itemMenu(Icons.people,      'Clientes',  1),
+            _itemMenu(Icons.history,     'Histórico', 2),
+            _itemMenu(Icons.local_drink, 'Produtos',  3),
             const Divider(color: Color(0xFF3A3D42)),
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFFF85149)),
@@ -101,6 +105,7 @@ class _HomeViewState extends State<HomeView> {
         index: _indiceAtual,
         children: [
           PedidosListView(refreshKey: _refreshPedidos),
+          ClientesView(refreshKey:   _refreshClientes),
           HistoricoView(refreshKey:  _refreshHistorico),
           ProdutosView(refreshKey:   _refreshProdutos),
         ],
@@ -115,10 +120,12 @@ class _HomeViewState extends State<HomeView> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _indiceAtual,
         onTap: _onNavTap,
+        type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt),   label: 'Pedidos'),
-          BottomNavigationBarItem(icon: Icon(Icons.history),    label: 'Histórico'),
-          BottomNavigationBarItem(icon: Icon(Icons.local_drink),label: 'Produtos'),
+          BottomNavigationBarItem(icon: Icon(Icons.list_alt),    label: 'Pedidos'),
+          BottomNavigationBarItem(icon: Icon(Icons.people),      label: 'Clientes'),
+          BottomNavigationBarItem(icon: Icon(Icons.history),     label: 'Histórico'),
+          BottomNavigationBarItem(icon: Icon(Icons.local_drink), label: 'Produtos'),
         ],
       ),
     );

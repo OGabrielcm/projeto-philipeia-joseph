@@ -248,6 +248,13 @@ def update_order(pedido_id: int, data: dict) -> dict | None:
             sets.append(f'{col} = ?')
             params.append(data[key])
 
+    # taxa_instalacao pode ser atualizada sem alterar os itens
+    if data.get('taxa_instalacao') is not None and data.get('itens') is None:
+        nova_taxa = float(data['taxa_instalacao'])
+        novo_total = float(current['subtotal']) + nova_taxa - float(current['desconto'])
+        sets += ['taxa_instalacao = ?', 'total = ?']
+        params += [nova_taxa, novo_total]
+
     date_fields = [
         ('data_evento', 'data_evento'), ('hora_inicio', 'hora_inicio'),
         ('data_recolhimento', 'data_recolhimento'), ('hora_recolhimento', 'hora_recolhimento'),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/cliente_service.dart';
 import '../../services/pedido_service.dart';
+import '../../utils/input_formatters.dart';
 
 class NovoPedidoView extends StatefulWidget {
   const NovoPedidoView({super.key});
@@ -218,7 +218,7 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
               controller: ctrl,
               autofocus: true,
               keyboardType: TextInputType.number,
-              inputFormatters: [_DateInputFormatter()],
+              inputFormatters: [DateInputFormatter()],
               decoration: InputDecoration(
                 labelText: 'dd/MM/yyyy',
                 errorText: erroLocal,
@@ -228,7 +228,7 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
               ElevatedButton(
                 onPressed: () {
-                  final parsed = _parseData(ctrl.text);
+                  final parsed = parseData(ctrl.text);
                   if (parsed == null) {
                     setLocal(() => erroLocal = 'Data inválida');
                     return;
@@ -273,7 +273,7 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
               controller: ctrl,
               autofocus: true,
               keyboardType: TextInputType.number,
-              inputFormatters: [_TimeInputFormatter()],
+              inputFormatters: [TimeInputFormatter()],
               decoration: InputDecoration(
                 labelText: 'HH:mm',
                 errorText: erroLocal,
@@ -283,7 +283,7 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
               ElevatedButton(
                 onPressed: () {
-                  final parsed = _parseHora(ctrl.text);
+                  final parsed = parseHora(ctrl.text);
                   if (parsed == null) {
                     setLocal(() => erroLocal = 'Hora inválida (HH:mm)');
                     return;
@@ -304,25 +304,6 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
     ctrl.dispose();
   }
 
-  DateTime? _parseData(String s) {
-    try {
-      final p = s.split('/');
-      if (p.length != 3) return null;
-      final d = int.parse(p[0]), m = int.parse(p[1]), y = int.parse(p[2]);
-      if (d < 1 || d > 31 || m < 1 || m > 12 || y < 2024) return null;
-      return DateTime(y, m, d);
-    } catch (_) { return null; }
-  }
-
-  TimeOfDay? _parseHora(String s) {
-    try {
-      final p = s.split(':');
-      if (p.length != 2) return null;
-      final h = int.parse(p[0]), min = int.parse(p[1]);
-      if (h < 0 || h > 23 || min < 0 || min > 59) return null;
-      return TimeOfDay(hour: h, minute: min);
-    } catch (_) { return null; }
-  }
 
   String _fmtData(DateTime? d) => d == null ? 'Selecionar' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   String _fmtHora(TimeOfDay? t) => t == null ? 'Selecionar' : '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -809,30 +790,3 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
   }
 }
 
-class _DateInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue _, TextEditingValue next) {
-    final digits = next.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 8; i++) {
-      if (i == 2 || i == 4) buf.write('/');
-      buf.write(digits[i]);
-    }
-    final s = buf.toString();
-    return next.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length));
-  }
-}
-
-class _TimeInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue _, TextEditingValue next) {
-    final digits = next.text.replaceAll(RegExp(r'[^0-9]'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 4; i++) {
-      if (i == 2) buf.write(':');
-      buf.write(digits[i]);
-    }
-    final s = buf.toString();
-    return next.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length));
-  }
-}

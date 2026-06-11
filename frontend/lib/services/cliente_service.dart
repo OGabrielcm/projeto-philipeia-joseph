@@ -12,9 +12,9 @@ class ClienteService {
     };
   }
 
-  static Future<List<dynamic>> buscar(String q) async {
+  static Future<List<dynamic>> buscar(String q, {int perPage = 20}) async {
     final uri = Uri.parse('${Utils.baseUrl}/clientes/').replace(
-      queryParameters: {'q': q, 'per_page': '20'},
+      queryParameters: {'q': q, 'per_page': '$perPage'},
     );
     final response = await http.get(uri, headers: await _headers());
     if (response.statusCode == 200) {
