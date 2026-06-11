@@ -1,5 +1,21 @@
 from .. import db
 
+_INSERT_STYLE = """
+INSERT INTO styles (nome, categoria) OUTPUT INSERTED.id VALUES (?,?)
+"""
+
+_INSERT_VOLUME = """
+INSERT INTO style_volumes (style_id, volume_litros, preco) VALUES (?,?,?)
+"""
+
+_UPDATE_STYLE = """
+UPDATE styles SET nome=?, categoria=?, updated_at=GETDATE() WHERE id=? AND ativo=1
+"""
+
+_DEACTIVATE_VOLUMES = """
+UPDATE style_volumes SET ativo=0 WHERE style_id=?
+"""
+
 _ESTILOS_SQL = """
 SELECT
     s.id          AS style_id,
@@ -58,6 +74,41 @@ def list_estilos() -> list[dict]:
         })
 
     return list(estilos.values())
+
+
+def _get_estilo(estilo_id: int) -> dict | None:
+    for e in list_estilos():
+        if e['id'] == estilo_id:
+            return e
+    return None
+
+
+def create_estilo(data: dict) -> dict:
+    estilo_id = db.execute_insert(_INSERT_STYLE, data['nome'], data['categoria'])
+    for v in data.get('volumes', []):
+        db.execute(_INSERT_VOLUME, estilo_id, int(v['volume_litros']), float(v['preco']))
+    return _get_estilo(estilo_id)
+
+
+def update_estilo(estilo_id: int, data: dict) -> dict | None:
+    row = db.fetchone('SELECT id FROM styles WHERE id=? AND ativo=1', estilo_id)
+    if not row:
+        return None
+    db.execute(_UPDATE_STYLE, data['nome'], data['categoria'], estilo_id)
+    if 'volumes' in data:
+        db.execute(_DEACTIVATE_VOLUMES, estilo_id)
+        for v in data['volumes']:
+            db.execute(_INSERT_VOLUME, estilo_id, int(v['volume_litros']), float(v['preco']))
+    return _get_estilo(estilo_id)
+
+
+def delete_estilo(estilo_id: int) -> bool:
+    row = db.fetchone('SELECT id FROM styles WHERE id=? AND ativo=1', estilo_id)
+    if not row:
+        return False
+    db.execute('UPDATE styles SET ativo=0, updated_at=GETDATE() WHERE id=?', estilo_id)
+    db.execute(_DEACTIVATE_VOLUMES, estilo_id)
+    return True
 
 
 def list_combos() -> list[dict]:
