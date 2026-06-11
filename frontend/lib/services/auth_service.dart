@@ -56,6 +56,30 @@ class AuthService {
     throw Exception('Sessão inválida');
   }
 
+  static Future<String> atualizarPerfil({
+    required String senhaAtual,
+    String? novoEmail,
+    String? novaSenha,
+  }) async {
+    final token = await getToken() ?? '';
+    final body = <String, dynamic>{'senha_atual': senhaAtual};
+    if (novoEmail != null && novoEmail.isNotEmpty) body['email'] = novoEmail;
+    if (novaSenha != null && novaSenha.isNotEmpty) body['nova_senha'] = novaSenha;
+    final response = await http.patch(
+      Uri.parse('${Utils.baseUrl}/auth/perfil'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return data['email'] as String;
+    }
+    throw Exception(data['error'] ?? 'Erro ao atualizar perfil');
+  }
+
   static Future<void> recuperarSenha(String email) async {
     final response = await http.post(
       Uri.parse('${Utils.baseUrl}/auth/recuperar-senha'),

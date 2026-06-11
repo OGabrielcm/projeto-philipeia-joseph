@@ -6,6 +6,7 @@ import '../pedidos/novo_pedido_view.dart';
 import '../historico/historico_view.dart';
 import '../produtos/produtos_view.dart';
 import '../login/login_view.dart';
+import '../perfil/perfil_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -93,6 +94,17 @@ class _HomeViewState extends State<HomeView> {
             _itemMenu(Icons.history,     'Histórico', 2),
             _itemMenu(Icons.local_drink, 'Produtos',  3),
             const Divider(color: Color(0xFF3A3D42)),
+            ListTile(
+              leading: const Icon(Icons.manage_accounts, color: Color(0xFFB5B9C0)),
+              title: const Text('Meu Perfil', style: TextStyle(color: Color(0xFFB5B9C0))),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PerfilView()),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFFF85149)),
               title: const Text('Sair', style: TextStyle(color: Color(0xFFF85149))),
