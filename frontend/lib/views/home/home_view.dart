@@ -96,7 +96,7 @@ class _HomeViewState extends State<HomeView> {
             const Divider(color: Color(0xFF3A3D42)),
             ListTile(
               leading: const Icon(Icons.manage_accounts, color: Color(0xFFB5B9C0)),
-              title: const Text('Meu Perfil', style: TextStyle(color: Color(0xFFB5B9C0))),
+              title: const Text('Meu Cadastro', style: TextStyle(color: Color(0xFFB5B9C0))),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(

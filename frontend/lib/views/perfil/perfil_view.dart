@@ -95,7 +95,7 @@ class _PerfilViewState extends State<PerfilView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Meu Perfil')),
+      appBar: AppBar(title: const Text('Meu Cadastro')),
       body: _carregando
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD300)))
           : Center(
@@ -109,7 +109,7 @@ class _PerfilViewState extends State<PerfilView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Conta do Administrador',
+                          'Cadastro do Administrador',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,

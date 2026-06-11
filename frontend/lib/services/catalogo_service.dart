@@ -60,6 +60,43 @@ class CatalogoService {
     }
   }
 
+  static Future<Map<String, dynamic>> criarCombo(Map<String, dynamic> payload) async {
+    final response = await http.post(
+      Uri.parse('${Utils.baseUrl}/catalogo/combos'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception(err['error'] ?? 'Erro ao criar combo');
+  }
+
+  static Future<Map<String, dynamic>> atualizarCombo(int id, Map<String, dynamic> payload) async {
+    final response = await http.put(
+      Uri.parse('${Utils.baseUrl}/catalogo/combos/$id'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception(err['error'] ?? 'Erro ao atualizar combo');
+  }
+
+  static Future<void> excluirCombo(int id) async {
+    final response = await http.delete(
+      Uri.parse('${Utils.baseUrl}/catalogo/combos/$id'),
+      headers: await _headers(),
+    );
+    if (response.statusCode != 204) {
+      final err = jsonDecode(response.body) as Map<String, dynamic>;
+      throw Exception(err['error'] ?? 'Erro ao excluir combo');
+    }
+  }
+
   static Future<List<dynamic>> listarCombos() async {
     final response = await http.get(
       Uri.parse('${Utils.baseUrl}/catalogo/combos'),
