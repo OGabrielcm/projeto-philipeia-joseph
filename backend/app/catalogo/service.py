@@ -30,6 +30,16 @@ WHERE s.ativo = 1
 ORDER BY s.categoria, s.nome, sv.volume_litros
 """
 
+_INSERT_COMBO = """
+INSERT INTO combos (nome, style_volume_1_id, style_volume_2_id, preco)
+OUTPUT INSERTED.id VALUES (?,?,?,?)
+"""
+
+_UPDATE_COMBO = """
+UPDATE combos SET nome=?, style_volume_1_id=?, style_volume_2_id=?, preco=?
+WHERE id=? AND ativo=1
+"""
+
 _COMBOS_SQL = """
 SELECT
     c.id,
@@ -111,25 +121,81 @@ def delete_estilo(estilo_id: int) -> bool:
     return True
 
 
+_GET_COMBO_SQL = """
+SELECT
+    c.id, c.nome, c.preco,
+    sv1.id AS sv1_id, s1.nome AS sv1_style_nome,
+    sv1.volume_litros AS sv1_volume, sv1.preco AS sv1_preco,
+    sv2.id AS sv2_id, s2.nome AS sv2_style_nome,
+    sv2.volume_litros AS sv2_volume, sv2.preco AS sv2_preco
+FROM combos c
+JOIN style_volumes sv1 ON sv1.id = c.style_volume_1_id
+JOIN styles s1         ON s1.id  = sv1.style_id
+JOIN style_volumes sv2 ON sv2.id = c.style_volume_2_id
+JOIN styles s2         ON s2.id  = sv2.style_id
+WHERE c.ativo = 1 AND c.id = ?
+"""
+
+
+def _row_to_combo(r: dict) -> dict:
+    return {
+        'id':    r['id'],
+        'nome':  r['nome'],
+        'preco': float(r['preco']),
+        'item_1': {
+            'style_volume_id': r['sv1_id'],
+            'style_nome':      r['sv1_style_nome'],
+            'volume_litros':   r['sv1_volume'],
+            'preco':           float(r['sv1_preco']),
+        },
+        'item_2': {
+            'style_volume_id': r['sv2_id'],
+            'style_nome':      r['sv2_style_nome'],
+            'volume_litros':   r['sv2_volume'],
+            'preco':           float(r['sv2_preco']),
+        },
+    }
+
+
+def _get_combo(combo_id: int) -> dict | None:
+    row = db.fetchone(_GET_COMBO_SQL, combo_id)
+    return _row_to_combo(row) if row else None
+
+
+def create_combo(data: dict) -> dict:
+    combo_id = db.execute_insert(
+        _INSERT_COMBO,
+        data['nome'],
+        data['style_volume_1_id'],
+        data['style_volume_2_id'],
+        float(data['preco']),
+    )
+    return _get_combo(combo_id)
+
+
+def update_combo(combo_id: int, data: dict) -> dict | None:
+    row = db.fetchone('SELECT id FROM combos WHERE id=? AND ativo=1', combo_id)
+    if not row:
+        return None
+    db.execute(
+        _UPDATE_COMBO,
+        data['nome'],
+        data['style_volume_1_id'],
+        data['style_volume_2_id'],
+        float(data['preco']),
+        combo_id,
+    )
+    return _get_combo(combo_id)
+
+
+def delete_combo(combo_id: int) -> bool:
+    row = db.fetchone('SELECT id FROM combos WHERE id=? AND ativo=1', combo_id)
+    if not row:
+        return False
+    db.execute('UPDATE combos SET ativo=0 WHERE id=?', combo_id)
+    return True
+
+
 def list_combos() -> list[dict]:
     rows = db.fetchall(_COMBOS_SQL)
-    return [
-        {
-            'id':    r['id'],
-            'nome':  r['nome'],
-            'preco': float(r['preco']),
-            'item_1': {
-                'style_volume_id': r['sv1_id'],
-                'style_nome':      r['sv1_style_nome'],
-                'volume_litros':   r['sv1_volume'],
-                'preco':           float(r['sv1_preco']),
-            },
-            'item_2': {
-                'style_volume_id': r['sv2_id'],
-                'style_nome':      r['sv2_style_nome'],
-                'volume_litros':   r['sv2_volume'],
-                'preco':           float(r['sv2_preco']),
-            },
-        }
-        for r in rows
-    ]
+    return [_row_to_combo(r) for r in rows]
