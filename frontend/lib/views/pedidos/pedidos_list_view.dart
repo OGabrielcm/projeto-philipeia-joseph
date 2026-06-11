@@ -140,6 +140,18 @@ class _PedidosListViewState extends State<PedidosListView> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Future<void> _verDetalhesPedido(Map<String, dynamic> resumo) async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF2A2D31),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _DetalhePedidoSheet(id: resumo['id'] as int),
+    );
+  }
+
   String _formatarData(String iso) {
     try {
       final partes = iso.substring(0, 10).split('-');
@@ -181,7 +193,10 @@ class _PedidosListViewState extends State<PedidosListView> {
           final isPendente  = status == 'pendente';
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _verDetalhesPedido(p),
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,9 +310,171 @@ class _PedidosListViewState extends State<PedidosListView> {
                 ],
               ),
             ),
+          ),
           );
         },
       ),
     );
+  }
+}
+
+class _DetalhePedidoSheet extends StatefulWidget {
+  const _DetalhePedidoSheet({required this.id});
+  final int id;
+
+  @override
+  State<_DetalhePedidoSheet> createState() => _DetalhePedidoSheetState();
+}
+
+class _DetalhePedidoSheetState extends State<_DetalhePedidoSheet> {
+  Map<String, dynamic>? _pedido;
+  bool _carregando = true;
+  String? _erro;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    try {
+      final p = await PedidoService.buscarPorId(widget.id);
+      if (mounted) setState(() { _pedido = p; _carregando = false; });
+    } catch (e) {
+      if (mounted) setState(() { _erro = e.toString(); _carregando = false; });
+    }
+  }
+
+  String _fmtData(String iso) {
+    try {
+      final p = iso.substring(0, 10).split('-');
+      return '${p[2]}/${p[1]}/${p[0]}';
+    } catch (_) { return iso; }
+  }
+
+  String _fmtHora(String t) => t.length >= 5 ? t.substring(0, 5) : t;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      builder: (_, ctrl) {
+        if (_carregando) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(color: Color(0xFFFFD300)),
+          ));
+        }
+        if (_erro != null || _pedido == null) {
+          return Center(child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(_erro ?? 'Erro ao carregar', style: const TextStyle(color: Color(0xFFF85149))),
+          ));
+        }
+        final p = _pedido!;
+        final itens = p['itens'] as List<dynamic>? ?? [];
+        final endereco = [
+          p['endereco_logradouro'], p['endereco_numero'],
+          if ((p['endereco_complemento'] as String?) != null && p['endereco_complemento'].isNotEmpty)
+            p['endereco_complemento'],
+          p['endereco_bairro'], p['endereco_cidade'],
+          p['endereco_estado'],
+        ].join(', ');
+
+        return ListView(
+          controller: ctrl,
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          children: [
+            Center(child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: const Color(0xFF3A3D42), borderRadius: BorderRadius.circular(2)),
+            )),
+            const SizedBox(height: 16),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(p['numero'] as String,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              _badge(p['status'] as String),
+            ]),
+            const SizedBox(height: 4),
+            Text(p['customer_nome'] as String,
+                style: const TextStyle(color: Color(0xFFB5B9C0), fontSize: 14)),
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFF3A3D42)),
+            _linha('Evento', '${_fmtData(p['data_evento'] as String)}  ${_fmtHora(p['hora_inicio'] as String)}'),
+            _linha('Recolhimento', '${_fmtData(p['data_recolhimento'] as String)}  ${_fmtHora(p['hora_recolhimento'] as String)}'),
+            _linha('Endereço', endereco),
+            if ((p['observacoes'] as String?) != null && (p['observacoes'] as String).isNotEmpty)
+              _linha('Observações', p['observacoes'] as String),
+            const Divider(color: Color(0xFF3A3D42)),
+            const Text('Itens', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFFD300))),
+            const SizedBox(height: 8),
+            ...itens.map((item) {
+              final it = item as Map<String, dynamic>;
+              final subtotal = (it['quantidade'] as int) * (it['preco_unitario'] as num).toDouble();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  Expanded(child: Text(
+                    '${it['quantidade']}x  ${it['descricao']}',
+                    style: const TextStyle(color: Color(0xFFB5B9C0), fontSize: 13),
+                  )),
+                  Text(
+                    'R\$ ${subtotal.toStringAsFixed(2)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ]),
+              );
+            }),
+            const Divider(color: Color(0xFF3A3D42)),
+            _valorLinha('Subtotal', p['subtotal'] as num),
+            _valorLinha('Taxa de instalação', p['taxa_instalacao'] as num),
+            if ((p['desconto'] as num) > 0) _valorLinha('Desconto', p['desconto'] as num),
+            const SizedBox(height: 4),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+              Text(
+                'R\$ ${(p['total'] as num).toStringAsFixed(2)}',
+                style: const TextStyle(color: Color(0xFFFFD300), fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ]),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _badge(String status) {
+    final isPendente = status == 'pendente';
+    final cor = isPendente ? const Color(0xFFD29922) : const Color(0xFF3FB950);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: cor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cor),
+      ),
+      child: Text(isPendente ? 'Pendente' : 'Confirmado',
+          style: TextStyle(color: cor, fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _linha(String label, String valor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 110, child: Text(label, style: const TextStyle(color: Color(0xFF7A7E85), fontSize: 13))),
+        Expanded(child: Text(valor, style: const TextStyle(color: Color(0xFFB5B9C0), fontSize: 13))),
+      ]),
+    );
+  }
+
+  Widget _valorLinha(String label, num valor) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: const TextStyle(color: Color(0xFF7A7E85), fontSize: 13)),
+      Text('R\$ ${valor.toStringAsFixed(2)}', style: const TextStyle(color: Color(0xFFB5B9C0), fontSize: 13)),
+    ]);
   }
 }

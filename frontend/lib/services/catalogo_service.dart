@@ -6,7 +6,10 @@ import 'utils.dart';
 class CatalogoService {
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken() ?? '';
-    return {'Authorization': 'Bearer $token'};
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
   }
 
   static Future<List<dynamic>> listarEstilos() async {
@@ -18,6 +21,43 @@ class CatalogoService {
       return jsonDecode(response.body) as List<dynamic>;
     }
     throw Exception('Erro ao carregar catálogo');
+  }
+
+  static Future<Map<String, dynamic>> criarEstilo(Map<String, dynamic> payload) async {
+    final response = await http.post(
+      Uri.parse('${Utils.baseUrl}/catalogo/estilos'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception(err['error'] ?? 'Erro ao criar estilo');
+  }
+
+  static Future<Map<String, dynamic>> atualizarEstilo(int id, Map<String, dynamic> payload) async {
+    final response = await http.put(
+      Uri.parse('${Utils.baseUrl}/catalogo/estilos/$id'),
+      headers: await _headers(),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final err = jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception(err['error'] ?? 'Erro ao atualizar estilo');
+  }
+
+  static Future<void> excluirEstilo(int id) async {
+    final response = await http.delete(
+      Uri.parse('${Utils.baseUrl}/catalogo/estilos/$id'),
+      headers: await _headers(),
+    );
+    if (response.statusCode != 204) {
+      final err = jsonDecode(response.body) as Map<String, dynamic>;
+      throw Exception(err['error'] ?? 'Erro ao excluir estilo');
+    }
   }
 
   static Future<List<dynamic>> listarCombos() async {

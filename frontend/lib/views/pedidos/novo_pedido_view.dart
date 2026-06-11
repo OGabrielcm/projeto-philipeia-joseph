@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/catalogo_service.dart';
 import '../../services/cliente_service.dart';
 import '../../services/pedido_service.dart';
@@ -204,49 +205,123 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
 
   // ---- Seletores de data/hora ----
   Future<void> _selecionarData(bool isEvento) async {
-    final picked = await showDatePicker(
+    final atual = isEvento ? _dataEvento : _dataRecolhimento;
+    final ctrl = TextEditingController(text: atual != null ? _fmtData(atual) : '');
+    await showDialog<void>(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2030),
-      builder: (_, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(primary: Color(0xFFFFD300)),
-        ),
-        child: child!,
-      ),
+      builder: (ctx) {
+        String? erroLocal;
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: Text(isEvento ? 'Data do Evento' : 'Data de Recolhimento'),
+            content: TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [_DateInputFormatter()],
+              decoration: InputDecoration(
+                labelText: 'dd/MM/yyyy',
+                errorText: erroLocal,
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () {
+                  final parsed = _parseData(ctrl.text);
+                  if (parsed == null) {
+                    setLocal(() => erroLocal = 'Data inválida');
+                    return;
+                  }
+                  if (!isEvento && _dataEvento != null && parsed.isBefore(_dataEvento!)) {
+                    setLocal(() => erroLocal = 'Deve ser >= data do evento');
+                    return;
+                  }
+                  setState(() {
+                    if (isEvento) {
+                      _dataEvento = parsed;
+                      if (_dataRecolhimento == null || _dataRecolhimento!.isBefore(parsed)) {
+                        _dataRecolhimento = parsed;
+                      }
+                    } else {
+                      _dataRecolhimento = parsed;
+                    }
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        });
+      },
     );
-    if (picked != null) {
-      setState(() {
-        if (isEvento) {
-          _dataEvento = picked;
-          if (_dataRecolhimento == null || _dataRecolhimento!.isBefore(picked)) {
-            _dataRecolhimento = picked;
-          }
-        } else {
-          _dataRecolhimento = picked;
-        }
-      });
-    }
+    ctrl.dispose();
   }
 
   Future<void> _selecionarHora(bool isInicio) async {
-    final picked = await showTimePicker(
+    final atual = isInicio ? _horaInicio : _horaRecolhimento;
+    final ctrl = TextEditingController(text: atual != null ? _fmtHora(atual) : '');
+    await showDialog<void>(
       context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (_, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(primary: Color(0xFFFFD300)),
-        ),
-        child: child!,
-      ),
+      builder: (ctx) {
+        String? erroLocal;
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          return AlertDialog(
+            title: Text(isInicio ? 'Hora de Início' : 'Hora de Recolhimento'),
+            content: TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [_TimeInputFormatter()],
+              decoration: InputDecoration(
+                labelText: 'HH:mm',
+                errorText: erroLocal,
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () {
+                  final parsed = _parseHora(ctrl.text);
+                  if (parsed == null) {
+                    setLocal(() => erroLocal = 'Hora inválida (HH:mm)');
+                    return;
+                  }
+                  setState(() {
+                    if (isInicio) _horaInicio = parsed;
+                    else _horaRecolhimento = parsed;
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        });
+      },
     );
-    if (picked != null) {
-      setState(() {
-        if (isInicio) _horaInicio = picked;
-        else _horaRecolhimento = picked;
-      });
-    }
+    ctrl.dispose();
+  }
+
+  DateTime? _parseData(String s) {
+    try {
+      final p = s.split('/');
+      if (p.length != 3) return null;
+      final d = int.parse(p[0]), m = int.parse(p[1]), y = int.parse(p[2]);
+      if (d < 1 || d > 31 || m < 1 || m > 12 || y < 2024) return null;
+      return DateTime(y, m, d);
+    } catch (_) { return null; }
+  }
+
+  TimeOfDay? _parseHora(String s) {
+    try {
+      final p = s.split(':');
+      if (p.length != 2) return null;
+      final h = int.parse(p[0]), min = int.parse(p[1]);
+      if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+      return TimeOfDay(hour: h, minute: min);
+    } catch (_) { return null; }
   }
 
   String _fmtData(DateTime? d) => d == null ? 'Selecionar' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -731,5 +806,33 @@ class _NovoPedidoViewState extends State<NovoPedidoView> {
     _taxaCtrl.removeListener(_onTaxaChanged);
     _taxaCtrl.dispose();
     super.dispose();
+  }
+}
+
+class _DateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue _, TextEditingValue next) {
+    final digits = next.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final buf = StringBuffer();
+    for (var i = 0; i < digits.length && i < 8; i++) {
+      if (i == 2 || i == 4) buf.write('/');
+      buf.write(digits[i]);
+    }
+    final s = buf.toString();
+    return next.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length));
+  }
+}
+
+class _TimeInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue _, TextEditingValue next) {
+    final digits = next.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final buf = StringBuffer();
+    for (var i = 0; i < digits.length && i < 4; i++) {
+      if (i == 2) buf.write(':');
+      buf.write(digits[i]);
+    }
+    final s = buf.toString();
+    return next.copyWith(text: s, selection: TextSelection.collapsed(offset: s.length));
   }
 }
