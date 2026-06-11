@@ -1,3 +1,4 @@
+import os
 import secrets
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify, current_app
@@ -9,7 +10,7 @@ from .recovery_email import send_recovery_email
 
 auth_bp = Blueprint('auth', __name__)
 
-_recovery_tokens: dict = {}  # email → {code, expires}
+_recovery_tokens: dict = {} 
 
 
 @auth_bp.post('/login')
@@ -63,3 +64,66 @@ def recuperar_senha():
         send_recovery_email(email, code, current_app.config)
 
     return jsonify(message='Se o e-mail estiver cadastrado, você receberá as instruções em breve.'), 200
+
+
+def _update_env(updates: dict) -> None:
+    env_path = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
+    )
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    updated_keys: set = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.rstrip('\n')
+        if '=' in stripped and not stripped.lstrip().startswith('#'):
+            key = stripped.split('=', 1)[0].strip()
+            if key in updates:
+                new_lines.append(f'{key}={updates[key]}\n')
+                updated_keys.add(key)
+                continue
+        new_lines.append(line if line.endswith('\n') else line + '\n')
+    for key, val in updates.items():
+        if key not in updated_keys:
+            new_lines.append(f'{key}={val}\n')
+    with open(env_path, 'w', encoding='utf-8') as f:
+        f.writelines(new_lines)
+
+
+@auth_bp.patch('/perfil')
+@require_auth
+def atualizar_perfil():
+    data = request.get_json(silent=True) or {}
+    senha_atual = data.get('senha_atual', '')
+
+    admin_hash = current_app.config['ADMIN_PASSWORD_HASH'].encode()
+    if not bcrypt.checkpw(senha_atual.encode(), admin_hash):
+        return jsonify(error='Senha atual incorreta'), 401
+
+    novo_email = (data.get('email') or '').strip().lower()
+    nova_senha = (data.get('nova_senha') or '').strip()
+
+    if not novo_email and not nova_senha:
+        return jsonify(error='Informe o novo e-mail ou a nova senha'), 422
+
+    env_updates: dict = {}
+
+    if novo_email:
+        current_app.config['ADMIN_EMAIL'] = novo_email
+        env_updates['ADMIN_EMAIL'] = novo_email
+
+    if nova_senha:
+        if len(nova_senha) < 6:
+            return jsonify(error='A nova senha deve ter pelo menos 6 caracteres'), 422
+        novo_hash = bcrypt.hashpw(nova_senha.encode(), bcrypt.gensalt(12)).decode()
+        current_app.config['ADMIN_PASSWORD_HASH'] = novo_hash
+        env_updates['ADMIN_PASSWORD_HASH'] = novo_hash
+
+    _update_env(env_updates)
+
+    return jsonify(
+        message='Perfil atualizado com sucesso',
+        email=current_app.config['ADMIN_EMAIL'],
+    ), 200
