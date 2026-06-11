@@ -34,6 +34,14 @@ class ClienteService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     final err = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 422) {
+      final erros = err['errors'] as Map<String, dynamic>? ?? {};
+      final msgs = erros.entries.map((e) {
+        final lista = (e.value as List<dynamic>).join(', ');
+        return '${e.key}: $lista';
+      }).join('\n');
+      throw Exception(msgs.isNotEmpty ? msgs : 'Dados inválidos');
+    }
     throw Exception(err['error'] ?? 'Erro ao criar cliente');
   }
 
